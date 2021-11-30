@@ -1,0 +1,83 @@
+#yes this is the reflect visualizer but with refractions
+
+@name Refract Visualizer
+@persist Size:vector Refractions [Rangers Directions]:array IOR HitEnt:entity
+@model models/props_lab/tpplug.mdl
+
+if(first()|duped()){
+
+    #set max cpu usage and how many times it will Refract
+    Refractions = 1
+    IOR = 1.33
+    
+    runOnTick(1)
+    
+    #get the length of the model we're using for the holo in hammer units
+    Getlen = propSpawn("models/hunter/plates/plate32x32.mdl", 1)
+    Size = Getlen:aabbSize()
+    Getlen:propDelete()
+
+    #function i stole most of from vurv
+    #makes a line with a holo index, and 2 points.
+    function void line(Index, [Pos1 Pos2 Color]:vector){
+
+        local Distance = Pos1:distance(Pos2)
+        local Direction = Pos2 - Pos1
+        
+        #check if the holo with the index specified allready exists
+        if(holoEntity(Index):isValid()){
+            holoReset(Index, "models/hunter/plates/plate32x32.mdl", vec(1), Color, "models/debug/debugwhite")
+            holoPos(Index, (Pos1 + Pos2)/2)
+            holoAng(Index, (Pos1 - Pos2):toAngle() + ang(0, 0, 0))
+            holoScaleUnits(Index, vec(Distance, 3, 3))
+        } else {
+            holoCreate(Index, (Pos1 + Pos2)/2, vec(1), Direction:toAngle(), Color, "models/hunter/plates/plate32x32.mdl")
+            holoMaterial(Index, "models/debug/debugwhite")
+            holoScaleUnits(Index, vec(Distance, 3, 3))
+        }
+    }
+    Refractions++
+    
+    #refract func stolen from spanky
+    function vector refract(Incident:vector, Normal:vector, Ior){
+        local CosI = clamp(-1, 1, Incident:dot(Normal))
+        local EtaI = 1
+        local EtaT = Ior
+
+        if(CosI < 0){
+            CosI = -CosI
+        }
+        else{
+            EtaT = EtaI
+            EtaI = Ior
+            Normal = -Normal
+        }
+        local Eta = EtaI / EtaT
+        local K = 1 - Eta^2 * (1 - CosI^2)
+        return K < 0 ? vec(0) : Eta * Incident + (Eta * CosI - sqrt(K)) * Normal
+    }
+}
+#timer("balls", 500)
+#if(clk("balls")){
+for(I = 1, Refractions){
+    if(I == 1){
+        #incidince ray
+
+        Rangers[I, ranger] = rangerOffset(65535, entity():pos(), entity():forward())
+        Directions[I, vector] = entity():forward()
+
+        line(I, entity():pos(), Rangers[I, ranger]:pos(), vec(85, 220, 85))
+        rangerFilter(array(Rangers[I, ranger]:entity(), entity()))
+        I++
+
+    } else {
+        #refraction rays
+        RefractDir = refract(Directions[I-1, vector], Rangers[I-1, ranger]:hitNormal(), IOR)
+        Directions[I, vector] = RefractDir
+        Rangers[I, ranger] = rangerOffset(65535, Rangers[I-1, ranger]:pos(), RefractDir)
+
+        line(I, Rangers[I-1, ranger]:pos(), Rangers[I, ranger]:pos(), vec(85, 85, 220))
+        rangerFilter(Rangers[I, ranger]:entity())
+        I++
+    }
+}
