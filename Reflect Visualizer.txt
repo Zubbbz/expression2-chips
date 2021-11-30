@@ -4,9 +4,8 @@
 
 if(first()|duped()){
 
-    #set max cpu usage and how many times it will reflect
-    MaxCPU = 3000
-    Reflections = 10
+    Reflections = 30
+    MaxCPU = 5000
 
     runOnTick(1)
 
@@ -28,36 +27,41 @@ if(first()|duped()){
             holoPos(Index, (Pos1 + Pos2)/2)
             holoAng(Index, (Pos1 - Pos2):toAngle() + ang(0, 0, 0))
             holoScaleUnits(Index, vec(Distance, 3, 3))
+            holoVisible(Index, players(), 0)
+            holoVisible(Index, owner(), 1)
         } else {
             holoCreate(Index, (Pos1 + Pos2)/2, vec(1), Direction:toAngle(), Color, "models/hunter/plates/plate32x32.mdl")
             holoMaterial(Index, "models/debug/debugwhite")
             holoScaleUnits(Index, vec(Distance, 3, 3))
+            holoVisible(Index, players(), 0)
+            holoVisible(Index, owner(), 1)
+
         }
     }
     #reflect func I stole from vurv
     function vector vector:reflect(HitNormal:vector){
         return This - 2 * (This:dot(HitNormal)) * HitNormal
     }
+
+    Reflections++
 }
 
 #keep the chip from using too much cpu
 while(cpuUsage()*10^6 < MaxCPU & (opcounter() < softQuota())){
-#only run if the chip pos changed to preserve idle cpu
-if(changed(entity():pos())){
     for(I = 1, Reflections){
-        #incidince ray
         if(I == 1){
-            Rangers[I, ranger] = rangerOffset(65535, entity():pos(), entity():forward())
-            Directions[I, vector] = entity():forward()
-            line(I, entity():pos(), Rangers[I, ranger]:pos(), vec(220, 85, 85))
-        } else{
-            #reflection ray(s)
-            ReflectDir = Directions[I-1, vector]:reflect(Rangers[I-1, ranger]:hitNormal())
-            Directions[I, vector] = ReflectDir
-            Rangers[I, ranger] = rangerOffset(65535, Rangers[I-1, ranger]:pos(), ReflectDir)
-            line(I, Rangers[I-1, ranger]:pos(), Rangers[I, ranger]:pos(), vec(30, 30, 30))
-        }
-        
+        #incidince ray
+        Directions[I, vector] = entity():forward()
+        Rangers[I, ranger] = rangerOffset(65535, entity():pos(), Directions[I, vector])
+
+        line(I, entity():pos(), Rangers[I, ranger]:pos(), vec(85, 220, 85))
+        I++
+    } else {
+        #reflection ray(s)
+        Directions[I, vector] = Directions[I-1, vector]:reflect(Rangers[I-1, ranger]:hitNormal())
+        Rangers[I, ranger] = rangerOffset(65535, Rangers[I-1, ranger]:pos(), Directions[I, vector])
+
+        line(I, Rangers[I-1, ranger]:pos(), Rangers[I, ranger]:pos(), vec(85, 85, 220))
     }
-}
+    }
 }
